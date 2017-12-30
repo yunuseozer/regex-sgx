@@ -18,12 +18,13 @@ extern crate onig;
 #[cfg(any(
     feature = "re-rust",
     feature = "re-rust-bytes",
-    feature = "re-rust-plugin",
   ))]
 extern crate regex;
 #[cfg(feature = "re-rust")]
 extern crate regex_syntax;
-extern crate rustc_serialize;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 
 use std::str;
 
@@ -50,7 +51,7 @@ Options:
     -h, --help   Show this usage message.
 ";
 
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug, Deserialize)]
 struct Args {
     arg_pattern: String,
     arg_file: String,
@@ -64,8 +65,9 @@ struct Args {
 }
 
 fn main() {
-    let args: Args = Docopt::new(USAGE).and_then(|d| d.decode())
-                                       .unwrap_or_else(|e| e.exit());
+    let args: Args = Docopt::new(USAGE)
+        .and_then(|d| d.deserialize())
+        .unwrap_or_else(|e| e.exit());
 
     let mmap = Mmap::open_path(&args.arg_file, Protection::Read).unwrap();
     let haystack = unsafe { str::from_utf8_unchecked(mmap.as_slice()) };

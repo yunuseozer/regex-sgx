@@ -8,6 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use std::cmp;
 use std::mem;
 
 use aho_corasick::{Automaton, AcAutomaton, FullAcAutomaton};
@@ -21,25 +22,13 @@ use simd_accel::teddy128::{Teddy, is_teddy_128_available};
 /// A prefix extracted from a compiled regular expression.
 ///
 /// A regex prefix is a set of literal strings that *must* be matched at the
-/// beginning of a regex in order for the entire regex to match.
-///
-/// There are a variety of ways to efficiently scan the search text for a
-/// prefix. Currently, there are three implemented:
-///
-/// 1. The prefix is a single byte. Just use memchr.
-/// 2. If the prefix is a set of two or more single byte prefixes, then
-///    a single sparse map is created. Checking if there is a match is a lookup
-///    in this map for each byte in the search text.
-/// 3. In all other cases, build an Aho-Corasick automaton.
-///
-/// It's possible that there's room here for other substring algorithms,
-/// such as Boyer-Moore for single-set prefixes greater than 1, or Rabin-Karp
-/// for small sets of same-length prefixes.
+/// beginning of a regex in order for the entire regex to match. Similarly
+/// for a regex suffix.
 #[derive(Clone, Debug)]
 pub struct LiteralSearcher {
     complete: bool,
-    lcp: MemchrSearch,
-    lcs: MemchrSearch,
+    lcp: FreqyPacked,
+    lcs: FreqyPacked,
     matcher: Matcher,
 }
 
@@ -50,12 +39,13 @@ enum Matcher {
     /// A set of four or more single byte literals.
     Bytes(SingleByteSet),
     /// A single substring, find using memchr and frequency analysis.
-    SingleMemchr(MemchrSearch),
+    FreqyPacked(FreqyPacked),
     /// A single substring, find using Boyer-Moore.
-    SingleBoyerMoore(BoyerMooreSearch),
+    BoyerMoore(BoyerMooreSearch),
     /// An Aho-Corasick automaton.
     AC(FullAcAutomaton<syntax::Lit>),
-    /// A simd accelerated multiple string matcher.
+    /// A simd accelerated multiple string matcher. Used only for a small
+    /// number of small literals.
     Teddy128(Teddy),
 }
 
@@ -81,8 +71,8 @@ impl LiteralSearcher {
         let complete = lits.all_complete();
         LiteralSearcher {
             complete: complete,
-            lcp: MemchrSearch::new(lits.longest_common_prefix().to_vec()),
-            lcs: MemchrSearch::new(lits.longest_common_suffix().to_vec()),
+            lcp: FreqyPacked::new(lits.longest_common_prefix().to_vec()),
+            lcs: FreqyPacked::new(lits.longest_common_suffix().to_vec()),
             matcher: matcher,
         }
     }
@@ -104,8 +94,8 @@ impl LiteralSearcher {
         match self.matcher {
             Empty => Some((0, 0)),
             Bytes(ref sset) => sset.find(haystack).map(|i| (i, i + 1)),
-            SingleMemchr(ref s) => s.find(haystack).map(|i| (i, i + s.len())),
-            SingleBoyerMoore(ref s) => s.find(haystack).map(|i| (i, i + s.len())),
+            FreqyPacked(ref s) => s.find(haystack).map(|i| (i, i + s.len())),
+            BoyerMoore(ref s) => s.find(haystack).map(|i| (i, i + s.len())),
             AC(ref aut) => aut.find(haystack).next().map(|m| (m.start, m.end)),
             Teddy128(ref ted) => ted.find(haystack).map(|m| (m.start, m.end)),
         }
@@ -142,8 +132,8 @@ impl LiteralSearcher {
         match self.matcher {
             Matcher::Empty => LiteralIter::Empty,
             Matcher::Bytes(ref sset) => LiteralIter::Bytes(&sset.dense),
-            Matcher::SingleMemchr(ref s) => LiteralIter::Single(&s.pat),
-            Matcher::SingleBoyerMoore(ref s) => LiteralIter::Single(&s.pattern),
+            Matcher::FreqyPacked(ref s) => LiteralIter::Single(&s.pat),
+            Matcher::BoyerMoore(ref s) => LiteralIter::Single(&s.pattern),
             Matcher::AC(ref ac) => LiteralIter::AC(ac.patterns()),
             Matcher::Teddy128(ref ted) => {
                 LiteralIter::Teddy128(ted.patterns())
@@ -152,12 +142,12 @@ impl LiteralSearcher {
     }
 
     /// Returns a matcher for the longest common prefix of this matcher.
-    pub fn lcp(&self) -> &MemchrSearch {
+    pub fn lcp(&self) -> &FreqyPacked {
         &self.lcp
     }
 
     /// Returns a matcher for the longest common suffix of this matcher.
-    pub fn lcs(&self) -> &MemchrSearch {
+    pub fn lcs(&self) -> &FreqyPacked {
         &self.lcs
     }
 
@@ -172,8 +162,8 @@ impl LiteralSearcher {
         match self.matcher {
             Empty => 0,
             Bytes(ref sset) => sset.dense.len(),
-            SingleMemchr(_) => 1,
-            SingleBoyerMoore(_) => 1,
+            FreqyPacked(_) => 1,
+            BoyerMoore(_) => 1,
             AC(ref aut) => aut.len(),
             Teddy128(ref ted) => ted.len(),
         }
@@ -185,8 +175,8 @@ impl LiteralSearcher {
         match self.matcher {
             Empty => 0,
             Bytes(ref sset) => sset.approximate_size(),
-            SingleMemchr(ref single) => single.approximate_size(),
-            SingleBoyerMoore(ref single) => single.approximate_size(),
+            FreqyPacked(ref single) => single.approximate_size(),
+            BoyerMoore(ref single) => single.approximate_size(),
             AC(ref aut) => aut.heap_bytes(),
             Teddy128(ref ted) => ted.approximate_size(),
         }
@@ -223,9 +213,9 @@ impl Matcher {
         if lits.literals().len() == 1 {
             let lit = lits.literals()[0].to_vec();
             if BoyerMooreSearch::should_use(lit.as_slice()) {
-                return Matcher::SingleBoyerMoore(BoyerMooreSearch::new(lit));
+                return Matcher::BoyerMoore(BoyerMooreSearch::new(lit));
             } else {
-                return Matcher::SingleMemchr(MemchrSearch::new(lit));
+                return Matcher::FreqyPacked(FreqyPacked::new(lit));
             }
         }
         let is_aho_corasick_fast = sset.dense.len() == 1 && sset.all_ascii;
@@ -386,11 +376,8 @@ impl SingleByteSet {
     }
 }
 
-/// Provides an implementation of fast subtring search.
-///
-/// This particular implementation is a Boyer-Moore variant, based on the
-/// "tuned boyer moore" search from (Hume & Sunday, 1991). It has been tweaked
-/// slightly to better use memchr.
+/// Provides an implementation of fast subtring search using frequency
+/// analysis.
 ///
 /// memchr is so fast that we do everything we can to keep the loop in memchr
 /// for as long as possible. The easiest way to do this is to intelligently
@@ -399,10 +386,8 @@ impl SingleByteSet {
 /// haystack is far too expensive, we compute a set of fixed frequencies up
 /// front and hard code them in src/freqs.rs. Frequency analysis is done via
 /// scripts/frequencies.py.
-///
-/// TODO(burntsushi): Add some amount of shifting to this.
 #[derive(Clone, Debug)]
-pub struct MemchrSearch {
+pub struct FreqyPacked {
     /// The pattern.
     pat: Vec<u8>,
     /// The number of Unicode characters in the pattern. This is useful for
@@ -428,10 +413,10 @@ pub struct MemchrSearch {
     rare2i: usize,
 }
 
-impl MemchrSearch {
-    fn new(pat: Vec<u8>) -> MemchrSearch {
+impl FreqyPacked {
+    fn new(pat: Vec<u8>) -> FreqyPacked {
         if pat.is_empty() {
-            return MemchrSearch::empty();
+            return FreqyPacked::empty();
         }
 
         // Find the rarest two bytes. Try to make them distinct (but it's not
@@ -456,7 +441,7 @@ impl MemchrSearch {
         let rare2i = pat.iter().rposition(|&b| b == rare2).unwrap();
 
         let char_len = char_len_lossy(&pat);
-        MemchrSearch {
+        FreqyPacked {
             pat: pat,
             char_len: char_len,
             rare1: rare1,
@@ -466,8 +451,8 @@ impl MemchrSearch {
         }
     }
 
-    fn empty() -> MemchrSearch {
-        MemchrSearch {
+    fn empty() -> FreqyPacked {
+        FreqyPacked {
             pat: vec![],
             char_len: 0,
             rare1: 0,
@@ -695,14 +680,33 @@ impl BoyerMooreSearch {
     /// I had trouble proving a useful turnover point. Hopefully,
     /// we can find one in the future.
     fn should_use(pattern: &[u8]) -> bool {
-        const CUTOFF_FREQ: usize = 242;
+        // The minimum pattern length required to use TBM.
+        const MIN_LEN: usize = 9;
+        // The minimum frequency rank (lower is rarer) that every byte in the
+        // pattern must have in order to use TBM. That is, if the pattern
+        // contains _any_ byte with a lower rank, then TBM won't be used.
+        const MIN_CUTOFF: usize = 150;
+        // The maximum frequency rank for any byte.
+        const MAX_CUTOFF: usize = 255;
+        // The scaling factor used to determine the actual cutoff frequency
+        // to use (keeping in mind that the minimum frequency rank is bounded
+        // by MIN_CUTOFF). This scaling factor is an attempt to make TBM more
+        // likely to be used as the pattern grows longer. That is, longer
+        // patterns permit somewhat less frequent bytes than shorter patterns,
+        // under the assumption that TBM gets better as the pattern gets
+        // longer.
+        const LEN_CUTOFF_PROPORTION: usize = 4;
 
-        // all the bytes must be more common than the cutoff.
-        pattern.iter().all(|c| freq_rank(*c) >= CUTOFF_FREQ)
-            // and the pattern must be long enough to be worthwhile.
-            // memchr will be faster on `e` because it is short
-            // even though e is quite common.
-            && pattern.len() > 7
+        let scaled_rank = pattern.len().wrapping_mul(LEN_CUTOFF_PROPORTION);
+        let cutoff = cmp::max(
+            MIN_CUTOFF,
+            MAX_CUTOFF - cmp::min(MAX_CUTOFF, scaled_rank),
+        );
+        // The pattern must be long enough to be worthwhile. e.g., memchr will
+        // be faster on `e` because it is short even though e is quite common.
+        pattern.len() > MIN_LEN
+            // all the bytes must be more common than the cutoff.
+            && pattern.iter().all(|c| freq_rank(*c) >= cutoff)
     }
 
     /// Check to see if there is a match at the given position
@@ -863,7 +867,7 @@ fn freq_rank(b: u8) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{BoyerMooreSearch, MemchrSearch};
+    use super::{BoyerMooreSearch, FreqyPacked};
 
     //
     // Unit Tests
@@ -994,9 +998,9 @@ mod tests {
             };
 
             let bm_searcher = BoyerMooreSearch::new(needle.clone());
-            let memchr_searcher = MemchrSearch::new(needle);
+            let freqy_memchr = FreqyPacked::new(needle);
             TestResult::from_bool(
-                bm_searcher.find(haystack) == memchr_searcher.find(haystack))
+                bm_searcher.find(haystack) == freqy_memchr.find(haystack))
         }
 
         fn qc_bm_finds_trailing_needle(

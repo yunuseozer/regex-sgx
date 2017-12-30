@@ -11,11 +11,6 @@
 // Enable the benchmarking harness.
 #![feature(test)]
 
-// If we're benchmarking the Rust regex plugin, then pull that in.
-// This will bring a `regex!` macro into scope.
-#![cfg_attr(feature = "re-rust-plugin", feature(plugin))]
-#![cfg_attr(feature = "re-rust-plugin", plugin(regex_macros))]
-
 #[macro_use]
 extern crate lazy_static;
 #[cfg(not(any(feature = "re-rust", feature = "re-rust-bytes")))]
@@ -27,7 +22,6 @@ extern crate onig;
 #[cfg(any(
     feature = "re-rust",
     feature = "re-rust-bytes",
-    feature = "re-rust-plugin",
   ))]
 extern crate regex;
 #[cfg(feature = "re-rust")]
@@ -43,7 +37,7 @@ pub use ffi::pcre1::Regex;
 pub use ffi::pcre2::Regex;
 #[cfg(feature = "re-re2")]
 pub use ffi::re2::Regex;
-#[cfg(any(feature = "re-rust", feature = "re-rust-plugin"))]
+#[cfg(feature = "re-rust")]
 pub use regex::Regex;
 #[cfg(feature = "re-rust-bytes")]
 pub use regex::bytes::Regex;
@@ -52,14 +46,11 @@ pub use ffi::tcl::Regex;
 
 // Usage: regex!(pattern)
 //
-// Builds a ::Regex from a borrowed string. This is used in every regex
-// engine except for the Rust plugin, because the plugin itself defines the
-// same macro.
+// Builds a ::Regex from a borrowed string.
 //
 // Due to macro scoping rules, this definition only applies for the modules
 // defined below. Effectively, it allows us to use the same tests for both
 // native and dynamic regexes.
-#[cfg(not(feature = "re-rust-plugin"))]
 macro_rules! regex {
     ($re:expr) => { ::Regex::new(&$re.to_owned()).unwrap() }
 }
@@ -99,7 +90,6 @@ macro_rules! text {
     feature = "re-pcre2",
     feature = "re-re2",
     feature = "re-rust",
-    feature = "re-rust-plugin",
   ))]
 macro_rules! text {
     ($text:expr) => { $text }
@@ -116,7 +106,6 @@ type Text = Vec<u8>;
     feature = "re-pcre2",
     feature = "re-re2",
     feature = "re-rust",
-    feature = "re-rust-plugin",
   ))]
 type Text = String;
 
@@ -231,6 +220,41 @@ macro_rules! bench_find {
             b.iter(|| {
                 let count = re.find_iter(&text).count();
                 assert_eq!($count, count)
+            });
+        }
+    }
+}
+
+// USAGE: bench_captures!(name, pattern, groups, haystack);
+//
+// CONTRACT:
+//   Given:
+//     ident, the desired benchmarking function name
+//     pattern : ::Regex, the regular expression to be executed
+//     groups : usize, the number of capture groups
+//     haystack : String, the string to search
+//   bench_captures will benchmark how fast re.captures() produces
+//   the capture groups in question.
+macro_rules! bench_captures {
+    ($name:ident, $pattern:expr, $count:expr, $haystack:expr) => {
+
+        #[cfg(feature = "re-rust")]
+        #[bench]
+        fn $name(b: &mut Bencher) {
+            use std::sync::Mutex;
+
+            lazy_static! {
+                static ref RE: Mutex<Regex> = Mutex::new($pattern);
+                static ref TEXT: Mutex<Text> = Mutex::new(text!($haystack));
+            };
+            let re = RE.lock().unwrap();
+            let text = TEXT.lock().unwrap();
+            b.bytes = text.len() as u64;
+            b.iter(|| {
+                match re.captures(&text) {
+                    None => assert!(false, "no captures"),
+                    Some(caps) => assert_eq!($count + 1, caps.len()),
+                }
             });
         }
     }
