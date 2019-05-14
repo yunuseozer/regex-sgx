@@ -13,6 +13,7 @@ pub use self::imp::{Cached, CachedGuard};
 #[cfg(feature = "perf-cache")]
 mod imp {
     use thread_local::CachedThreadLocal;
+    use std::boxed::Box;
 
     #[derive(Debug)]
     pub struct Cached<T: Send>(CachedThreadLocal<T>);

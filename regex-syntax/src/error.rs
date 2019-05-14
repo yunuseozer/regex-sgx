@@ -1,3 +1,4 @@
+use std::prelude::v1::*;
 use std::cmp;
 use std::error;
 use std::fmt;
@@ -40,6 +41,7 @@ impl From<hir::Error> for Error {
 }
 
 impl error::Error for Error {
+    #[allow(deprecated)]
     fn description(&self) -> &str {
         match *self {
             Error::Parse(ref x) => x.description(),
