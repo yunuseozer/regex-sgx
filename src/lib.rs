@@ -616,10 +616,18 @@ another matching engine with fixed memory requirements.
 #![cfg_attr(test, deny(warnings))]
 #![cfg_attr(feature = "pattern", feature(pattern))]
 
-#[cfg(not(feature = "std"))]
-compile_error!("`std` feature is currently required to build this crate");
+#![cfg_attr(not(target_env = "sgx"), no_std)]
+#![cfg_attr(target_env = "sgx", feature(rustc_private))]
 
 #[cfg(feature = "perf-literal")]
+
+#[cfg(target_env = "sgx")]
+extern crate core;
+
+#[cfg(not(target_env = "sgx"))]
+#[macro_use]
+extern crate sgx_tstd as std;
+
 extern crate aho_corasick;
 #[cfg(test)]
 extern crate doc_comment;

@@ -1,6 +1,7 @@
 /*!
 Defines a high-level intermediate representation for regular expressions.
 */
+use std::prelude::v1::*;
 use std::char;
 use std::cmp;
 use std::error;

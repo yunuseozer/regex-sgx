@@ -1,3 +1,15 @@
+// Copyright 2014-2015 The Rust Project Developers. See the COPYRIGHT
+// file at the top-level directory of this distribution and at
+// http://rust-lang.org/COPYRIGHT.
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+use std::prelude::v1::*;
+
 /// The set of user configurable options for compiling zero or more regexes.
 #[derive(Clone, Debug)]
 #[allow(missing_docs)]
@@ -39,6 +51,7 @@ macro_rules! define_builder {
             use super::RegexOptions;
             use error::Error;
             use exec::ExecBuilder;
+            use std::borrow::ToOwned;
 
             use $regex_mod::Regex;
 
@@ -236,6 +249,7 @@ macro_rules! define_set_builder {
             use super::RegexOptions;
             use error::Error;
             use exec::ExecBuilder;
+            use std::borrow::ToOwned;
 
             use re_set::$regex_mod::RegexSet;
 
