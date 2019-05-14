@@ -2,6 +2,7 @@
 Defines a translator that converts an `Ast` to an `Hir`.
 */
 
+use std::prelude::v1::*;
 use std::cell::{Cell, RefCell};
 use std::result;
 

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::prelude::v1::*;
 use std::ops::Deref;
 use std::slice;
 

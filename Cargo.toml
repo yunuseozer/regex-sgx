@@ -13,8 +13,11 @@ finite automata and guarantees linear time matching on all inputs.
 """
 categories = ["text-processing"]
 autotests = false
-exclude = ["/scripts/*", "/.github/*"]
-edition = "2018"
+exclude = ["/.travis.yml", "/appveyor.yml", "/ci/*", "/scripts/*", "/sgx/*"]
+
+[badges]
+travis-ci = { repository = "rust-lang/regex" }
+appveyor = { repository = "rust-lang-libs/regex" }
 
 [workspace]
 members = [
@@ -32,7 +35,7 @@ doctest = false
 # Features are documented in the "Crate features" section of the crate docs:
 # https://docs.rs/regex/*/#crate-features
 [features]
-default = ["std", "perf", "unicode", "regex-syntax/default"]
+default = ["std", "perf", "unicode", "mesalock_sgx"]
 
 # ECOSYSTEM FEATURES
 
@@ -43,9 +46,10 @@ default = ["std", "perf", "unicode", "regex-syntax/default"]
 # will prevent regex from compiling.
 std = []
 # The 'use_std' feature is DEPRECATED. It will be removed in regex 2. Until
-# then, it is an alias for the 'std' feature.
-use_std = ["std"]
+# then, it is alias for the 'std' feature.
+use_std = ["std", "mesalock_sgx"]
 
+mesalock_sgx = ["sgx_tstd", "std", "regex-syntax/mesalock_sgx"]
 
 # PERFORMANCE FEATURES
 
@@ -106,13 +110,21 @@ pattern = []
 
 # For very fast prefix literal matching.
 [dependencies.aho-corasick]
-version = "0.7.18"
+#version = "0.7.6"
 optional = true
+git = "https://github.com/mesalock-linux/aho-corasick-sgx"
 
 # For skipping along search text quickly when a leading byte is known.
 [dependencies.memchr]
-version = "2.4.0"
+#version = "2.2.1"
 optional = true
+git = "https://github.com/mesalock-linux/rust-memchr-sgx"
+
+# For managing regex caches quickly across multiple threads.
+[dependencies.thread_local]
+#version = "0.3.6"
+optional = true
+git = "https://github.com/mesalock-linux/thread_local-rs-sgx"
 
 # For parsing regular expressions.
 [dependencies.regex-syntax]
@@ -120,18 +132,18 @@ path = "regex-syntax"
 version = "0.6.27"
 default-features = false
 
+[dependencies]
+sgx_tstd = { rev = "v1.1.0", git="https://github.com/apache/teaclave-sgx-sdk.git", optional = true }
+
 [dev-dependencies]
 # For examples.
-lazy_static = "1"
+#lazy_static = "1"
 # For property based tests.
-quickcheck = { version = "1.0.3", default-features = false }
+#quickcheck = { version = "0.8", default-features = false }
 # For generating random test data.
-rand = { version = "0.8.3", default-features = false, features = ["getrandom", "small_rng"] }
+#rand = "0.6.5"
 # To check README's example
-# TODO: Re-enable this once the MSRV is 1.43 or greater.
-# See: https://github.com/rust-lang/regex/issues/684
-# See: https://github.com/rust-lang/regex/issues/685
-# doc-comment = "0.3"
+#doc-comment = "0.3"
 
 # Run the test suite on the default behavior of Regex::new.
 # This includes a mish mash of NFAs and DFAs, which are chosen automatically

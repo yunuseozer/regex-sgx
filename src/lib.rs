@@ -612,15 +612,32 @@ another matching engine with fixed memory requirements.
 #![cfg_attr(feature = "pattern", feature(pattern))]
 #![warn(missing_debug_implementations)]
 
-#[cfg(not(feature = "std"))]
-compile_error!("`std` feature is currently required to build this crate");
+#![cfg_attr(not(target_env = "sgx"), no_std)]
+#![cfg_attr(target_env = "sgx", feature(rustc_private))]
 
-// To check README's example
-// TODO: Re-enable this once the MSRV is 1.43 or greater.
-// See: https://github.com/rust-lang/regex/issues/684
-// See: https://github.com/rust-lang/regex/issues/685
-// #[cfg(doctest)]
-// doc_comment::doctest!("../README.md");
+#[cfg(feature = "perf-literal")]
+
+#[cfg(target_env = "sgx")]
+extern crate core;
+
+#[cfg(not(target_env = "sgx"))]
+#[macro_use]
+extern crate sgx_tstd as std;
+
+extern crate aho_corasick;
+#[cfg(test)]
+extern crate doc_comment;
+#[cfg(feature = "perf-literal")]
+extern crate memchr;
+#[cfg(test)]
+#[cfg_attr(feature = "perf-literal", macro_use)]
+extern crate quickcheck;
+extern crate regex_syntax as syntax;
+#[cfg(feature = "perf-cache")]
+extern crate thread_local;
+
+#[cfg(test)]
+doc_comment::doctest!("../README.md");
 
 #[cfg(feature = "std")]
 pub use crate::error::Error;

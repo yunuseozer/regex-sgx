@@ -1,3 +1,4 @@
+use std::prelude::v1::*;
 use std::cmp;
 use std::error;
 use std::fmt;
@@ -40,7 +41,6 @@ impl From<hir::Error> for Error {
 }
 
 impl error::Error for Error {
-    // TODO: Remove this method entirely on the next breaking semver release.
     #[allow(deprecated)]
     fn description(&self) -> &str {
         match *self {

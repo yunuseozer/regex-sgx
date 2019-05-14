@@ -1,5 +1,6 @@
-use crate::ast;
-use crate::hir;
+use std::prelude::v1::*;
+use ast;
+use hir;
 
 use crate::Result;
 

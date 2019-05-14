@@ -13,7 +13,7 @@ edition = "2018"
 # Features are documented in the "Crate features" section of the crate docs:
 # https://docs.rs/regex-syntax/*/#crate-features
 [features]
-default = ["unicode"]
+default = ["unicode", "mesalock_sgx"]
 
 unicode = [
   "unicode-age",
@@ -31,3 +31,8 @@ unicode-gencat = []
 unicode-perl = []
 unicode-script = []
 unicode-segment = []
+
+mesalock_sgx = ["sgx_tstd"]
+
+[dependencies]
+sgx_tstd = { rev = "v1.1.0", git = "https://github.com/apache/teaclave-sgx-sdk.git", optional = true}
