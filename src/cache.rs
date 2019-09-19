@@ -13,7 +13,6 @@ pub use self::imp::{Cached, CachedGuard};
 #[cfg(feature = "perf-cache")]
 mod imp {
     use thread_local::CachedThreadLocal;
-    use std::boxed::Box;
 
     #[derive(Debug)]
     pub struct Cached<T: Send>(CachedThreadLocal<T>);
@@ -27,7 +26,7 @@ mod imp {
         }
 
         pub fn get_or(&self, create: impl FnOnce() -> T) -> CachedGuard<T> {
-            CachedGuard(self.0.get_or(|| Box::new(create())))
+            CachedGuard(self.0.get_or(|| create()))
         }
     }
 
