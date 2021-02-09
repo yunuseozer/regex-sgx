@@ -624,6 +624,7 @@ extern crate core;
 #[macro_use]
 extern crate sgx_tstd as std;
 
+#[cfg(feature = "perf-literal")]
 extern crate aho_corasick;
 #[cfg(test)]
 extern crate doc_comment;
