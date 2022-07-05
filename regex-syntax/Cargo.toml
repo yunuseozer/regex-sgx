@@ -35,4 +35,4 @@ unicode-segment = []
 mesalock_sgx = ["sgx_tstd"]
 
 [dependencies]
-sgx_tstd = { rev = "v1.1.4", git = "https://github.com/apache/teaclave-sgx-sdk.git", optional = true}
+sgx_tstd = { rev = "v1.1.4-upgrade", git = "https://github.com/yunuseozer/incubator-teaclave-sgx-sdk.git", optional = true}
