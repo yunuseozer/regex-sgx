@@ -406,7 +406,7 @@ pub fn is_word_character(c: char) -> result::Result<bool, UnicodeWordError> {
 
     #[cfg(feature = "unicode-perl")]
     fn imp(c: char) -> result::Result<bool, UnicodeWordError> {
-        use is_word_byte;
+        use crate::is_word_byte;
         use crate::unicode_tables::perl_word::PERL_WORD;
 
         if c <= 0x7F as char && is_word_byte(c as u8) {
