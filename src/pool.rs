@@ -60,6 +60,8 @@
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::boxed::Box;
+use std::vec::Vec;
 
 /// An atomic counter used to allocate thread IDs.
 static COUNTER: AtomicUsize = AtomicUsize::new(1);

@@ -15,7 +15,7 @@ use std::mem;
 use aho_corasick::{self, packed, AhoCorasick, AhoCorasickBuilder};
 use memchr::{memchr, memchr2, memchr3, memmem};
 use regex_syntax::hir::literal::{Literal, Literals};
-
+use syntax::hir::literal::Literals;
 /// A prefix extracted from a compiled regular expression.
 ///
 /// A regex prefix is a set of literal strings that *must* be matched at the

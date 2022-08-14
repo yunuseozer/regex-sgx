@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use std::prelude::v1::*;
-
+use std::iter::FusedIterator;
 /// Slot is a single saved capture location. Note that there are two slots for
 /// every capture in a regular expression (one slot each for the start and end
 /// of the capture).
