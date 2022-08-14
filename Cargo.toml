@@ -120,11 +120,6 @@ git = "https://github.com/yunuseozer/aho-corasick-sgx"
 optional = true
 git = "https://github.com/yunuseozer/rust-memchr-sgx"
 
-# For managing regex caches quickly across multiple threads.
-[dependencies.thread_local]
-#version = "0.3.6"
-optional = true
-git = "https://github.com/yunuseozer/thread_local-rs-sgx"
 
 # For parsing regular expressions.
 [dependencies.regex-syntax]

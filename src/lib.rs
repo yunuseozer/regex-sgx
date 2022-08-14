@@ -634,8 +634,6 @@ extern crate memchr;
 #[cfg_attr(feature = "perf-literal", macro_use)]
 extern crate quickcheck;
 extern crate regex_syntax as syntax;
-#[cfg(feature = "perf-cache")]
-extern crate thread_local;
 
 #[cfg(test)]
 doc_comment::doctest!("../README.md");
