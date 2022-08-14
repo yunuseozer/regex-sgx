@@ -132,7 +132,7 @@ pub fn contains_simple_case_mapping(
 
     #[cfg(feature = "unicode-case")]
     fn imp(start: char, end: char) -> FoldResult<bool> {
-        use unicode_tables::case_folding_simple::CASE_FOLDING_SIMPLE;
+        use crate::unicode_tables::case_folding_simple::CASE_FOLDING_SIMPLE;
 
         assert!(start <= end);
         Ok(CASE_FOLDING_SIMPLE
