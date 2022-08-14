@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use std::prelude::v1::*;
-use hir::{self, Hir, HirKind};
+use crate::hir::{self, Hir, HirKind};
 
 /// A trait for visiting the high-level IR (HIR) in depth first order.
 ///
